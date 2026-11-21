@@ -1,0 +1,16 @@
+{
+  "name": "Shokh Restaurant — Boshqaruv Tizimi",
+  "short_name": "ShokhResto",
+  "description": "Shokh Restaurant xodimlari davomati, oylik hisobi, tovar abaroti va AI yordamchi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23f59e0b'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='50'>👑</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
