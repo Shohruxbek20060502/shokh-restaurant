@@ -137,7 +137,20 @@ def init_db(recreate=False):
     )
     """)
 
-    # 8. Restaurant Settings
+    # 8. Shift Schedule (Haftalik jadval)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS shift_schedule (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        staff_id INTEGER NOT NULL,
+        date DATE NOT NULL,
+        shift_number INTEGER DEFAULT 1,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (staff_id) REFERENCES staff (id)
+    )
+    """)
+
+    # 9. Restaurant Settings
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -281,6 +294,10 @@ def seed_shokh_data(cursor, conn):
     cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('shift_2', '13:00 - 23:00')")
     cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('penalty_min', '20000')")
     cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('penalty_max', '200000')")
+    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_password', 'shokh2006')")
+    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('telegram_bot_token', '')")
+    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('telegram_chat_id', '')")
+    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('telegram_username', '@shokh0502')")
 
     conn.commit()
 
