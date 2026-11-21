@@ -1,7 +1,7 @@
 /**
  * Shokh Restaurant - Full Frontend Application Logic
  * Supporting:
- * - Admin Authentication (Password: shokh2006)
+ * - Admin Authentication
  * - Visual Charts & Statistics (7 days attendance & payroll)
  * - Shift Schedule (Smena jadvali - 14 days)
  * - Expiry & Low Stock Global Alerts
