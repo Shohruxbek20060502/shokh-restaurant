@@ -41,7 +41,6 @@
 
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
-    /* Custom scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
@@ -54,7 +53,7 @@
 
   <!-- Desktop / Tablet Sidebar -->
   <aside class="hidden md:flex flex-col w-64 border-r border-slate-800 bg-slate-900/90 backdrop-blur-xl p-4 justify-between shrink-0">
-    <div class="space-y-6">
+    <div class="space-y-5">
       <!-- App Brand -->
       <div class="flex items-center gap-3 px-2">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-amber-500/20 text-xl font-bold">
@@ -69,6 +68,15 @@
         </div>
       </div>
 
+      <!-- Admin Status Lock Button -->
+      <button onclick="toggleAdminLockModal()" id="admin-status-badge" class="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-amber-500/50 flex items-center justify-between text-xs transition-all">
+        <span class="flex items-center gap-2">
+          <span id="admin-lock-icon">🔒</span>
+          <span id="admin-lock-text" class="font-semibold text-slate-300">Admin Rejim</span>
+        </span>
+        <span id="admin-lock-tag" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 font-bold">KIRISH</span>
+      </button>
+
       <!-- Navigation Links -->
       <nav class="space-y-1">
         <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-800/60 active-nav">
@@ -76,6 +84,9 @@
         </button>
         <button onclick="switchTab('attendance')" id="nav-attendance" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-800/60">
           <span class="text-lg">⏱️</span> Kirdi-Chiqdi (Davomat)
+        </button>
+        <button onclick="switchTab('schedule')" id="nav-schedule" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <span class="text-lg">📅</span> Smena Jadvali
         </button>
         <button onclick="switchTab('staff')" id="nav-staff" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-slate-800/60">
           <span class="text-lg">👥</span> Xodimlar
@@ -109,7 +120,11 @@
         <span class="font-semibold text-amber-300" id="sidebar-resto-name">Shokh Restaurant</span>
       </div>
       <div class="flex items-center justify-between text-slate-400">
-        <span>Tizim holati:</span>
+        <span>Telegram:</span>
+        <span class="font-medium text-sky-400">@shokh0502</span>
+      </div>
+      <div class="flex items-center justify-between text-slate-400">
+        <span>Tizim:</span>
         <span class="flex items-center gap-1.5 text-emerald-400 font-medium">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Jonli (Faol)
         </span>
@@ -126,17 +141,17 @@
       <span class="font-bold text-white text-base">Shokh Restaurant</span>
     </div>
     <div class="flex items-center gap-2">
-      <button onclick="switchTab('ai')" class="px-2.5 py-1 rounded-lg bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1">
-        🤖 RestoAI
+      <button onclick="toggleAdminLockModal()" class="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-400 border border-slate-700 text-xs font-semibold">
+        <span id="mob-admin-icon">🔒</span> Admin
       </button>
       <button onclick="openPinModal()" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold shadow">
-        ⏱️ PIN Kiosk
+        ⏱️ PIN
       </button>
     </div>
   </header>
 
   <!-- Main Content Area -->
-  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto pb-20 md:pb-6 p-4 md:p-8 space-y-6">
+  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto pb-24 md:pb-6 p-4 md:p-8 space-y-6">
 
     <!-- Top Bar with Quick Actions -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -148,16 +163,30 @@
         <button onclick="openPinModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-sm shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all">
           <span>⏱️</span> PIN Kirdi-Chiqdi
         </button>
-        <button onclick="openAddStaffModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium text-sm flex items-center gap-2 transition-all">
+        <button onclick="requireAdmin(openAddStaffModal)" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium text-sm flex items-center gap-2 transition-all">
           <span>➕</span> Xodim qo'shish
         </button>
         <button onclick="openTransactionModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium text-sm flex items-center gap-2 transition-all">
           <span>📦</span> Kirim / Chiqim
         </button>
-        <button onclick="confirmResetDatabase()" class="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-semibold text-xs flex items-center gap-1.5 transition-all" title="Barcha test ma'lumotlarini tozalab, noldan boshlash">
+        <button onclick="requireAdmin(confirmResetDatabase)" class="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-semibold text-xs flex items-center gap-1.5 transition-all" title="Barcha test ma'lumotlarini tozalab, noldan boshlash">
           <span>🧹</span> Noldan Boshlash
         </button>
       </div>
+    </div>
+
+    <!-- Alert Banner: Expiring or low items -->
+    <div id="global-alert-banner" class="hidden p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4 text-amber-300">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🔔</span>
+        <div>
+          <p class="font-bold text-sm text-white" id="global-alert-title">Diqqat: Muddati o'tayotgan yoki tugayotgan mahsulotlar bor!</p>
+          <p class="text-xs text-amber-300/80" id="global-alert-desc">Go'sht va souslar sifatini zudlik bilan tekshiring.</p>
+        </div>
+      </div>
+      <button onclick="switchTab('inventory')" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-semibold shrink-0">
+        Omborni tekshirish →
+      </button>
     </div>
 
     <!-- 1. DASHBOARD TAB -->
@@ -217,6 +246,35 @@
         </div>
       </div>
 
+      <!-- Analytics & Visual Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Chart 1: 7 Day Attendance -->
+        <div class="p-6 rounded-2xl glass-card space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-base text-white flex items-center gap-2">
+              <span>📈</span> Oxirgi 7 Kunlik Davomat Grafigi
+            </h3>
+            <span class="text-xs text-indigo-400 font-semibold">Kunlik qatnashuv</span>
+          </div>
+          <div id="chart-attendance-bars" class="space-y-3 pt-2">
+            <!-- Dynamic bars -->
+          </div>
+        </div>
+
+        <!-- Chart 2: Top Staff Payroll -->
+        <div class="p-6 rounded-2xl glass-card space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-base text-white flex items-center gap-2">
+              <span>🏆</span> Xodimlar Bo'yicha Hisoblangan Oylik
+            </h3>
+            <span class="text-xs text-emerald-400 font-semibold">Top ishchilar</span>
+          </div>
+          <div id="chart-payroll-bars" class="space-y-3 pt-2">
+            <!-- Dynamic bars -->
+          </div>
+        </div>
+      </div>
+
       <!-- Quick AI Snapshot & Alerts -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left: Active Staff Right Now -->
@@ -270,18 +328,16 @@
 
     <!-- 2. ATTENDANCE (KIRDI-CHIQDI) TAB -->
     <div id="tab-attendance" class="space-y-6 tab-view hidden">
-      <!-- Fast Actions banner -->
       <div class="p-6 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950/60 border border-indigo-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="space-y-1 text-center sm:text-left">
           <h3 class="font-bold text-lg text-white">Xodimlar Kirdi-Chiqdisi (PIN Kiosk)</h3>
-          <p class="text-sm text-slate-400">Xodimlar o'zlarining 4 xonali PIN-kodi orqali osongina kelganini yoki ketganini qayd etadi.</p>
+          <p class="text-sm text-slate-400">Kechikishlar uchun jarima (20k - 200k) avtomatik hisoblanadi va @shokh0502 ga Telegram xabar yuboriladi.</p>
         </div>
         <button onclick="openPinModal()" class="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center gap-2 shrink-0">
           <span>🔢</span> PIN Kioskni Ochish
         </button>
       </div>
 
-      <!-- Attendance Table -->
       <div class="p-6 rounded-2xl glass-card space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h3 class="font-bold text-lg text-white">Davomat Tarixi</h3>
@@ -308,14 +364,37 @@
       </div>
     </div>
 
-    <!-- 3. STAFF (XODIMLAR) TAB -->
+    <!-- 3. SHIFT SCHEDULE (SMENA JADVALI) TAB -->
+    <div id="tab-schedule" class="space-y-6 tab-view hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 class="font-bold text-lg text-white">Smena Rejasi va Ish Grafigi</h3>
+          <p class="text-xs text-slate-400">1-smena: 09:00 - 19:00 | 2-smena: 13:00 - 23:00</p>
+        </div>
+        <button onclick="requireAdmin(openAddScheduleModal)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow flex items-center gap-2">
+          <span>➕</span> Smenaga xodim biriktirish
+        </button>
+      </div>
+
+      <div class="p-6 rounded-2xl glass-card space-y-4">
+        <div class="flex items-center justify-between">
+          <h4 class="font-bold text-base text-white">Yaqin 14 kunlik rejalashtirilgan smenalar</h4>
+          <span class="text-xs text-indigo-400">Avtomatik tartib</span>
+        </div>
+        <div id="schedule-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Dynamic schedule cards -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. STAFF (XODIMLAR) TAB -->
     <div id="tab-staff" class="space-y-6 tab-view hidden">
       <div class="flex justify-between items-center">
         <div>
-          <h3 class="font-bold text-lg text-white">Restoran Xodimlari Ro'yxati</h3>
-          <p class="text-xs text-slate-400">Barcha oshpaz, ofitsiant, barmen va boshqa xodimlar ma'lumotlari</p>
+          <h3 class="font-bold text-lg text-white">Restoran Xodimlari Iyerarxiyasi</h3>
+          <p class="text-xs text-slate-400">Direktor, Menejer, Lider, Universal, Povur, Stajor, Tozalik</p>
         </div>
-        <button onclick="openAddStaffModal()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow flex items-center gap-2">
+        <button onclick="requireAdmin(openAddStaffModal)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow flex items-center gap-2">
           <span>➕</span> Yangi xodim
         </button>
       </div>
@@ -325,7 +404,7 @@
       </div>
     </div>
 
-    <!-- 4. PAYROLL (OYLIK) TAB -->
+    <!-- 5. PAYROLL (OYLIK) TAB WITH EXCEL DOWNLOAD -->
     <div id="tab-payroll" class="space-y-6 tab-view hidden">
       <div class="p-6 rounded-2xl glass-card space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -333,9 +412,14 @@
             <h3 class="font-bold text-lg text-white">Ish Haqi va Oyliklar Hisoboti</h3>
             <p class="text-xs text-slate-400">Ishlangan soatlar va belgilangan soatlik stavka asosida avtomatik hisob-kitob</p>
           </div>
-          <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium text-xs flex items-center gap-2">
-            <span>🖨️</span> Hisobotni chop etish
-          </button>
+          <div class="flex items-center gap-2">
+            <a href="/api/payroll/csv" download="Shokh_Restaurant_Oylik.csv" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-2 shadow">
+              <span>📊</span> Excel / CSV yuklab olish
+            </a>
+            <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium text-xs flex items-center gap-2">
+              <span>🖨️</span> Chop etish
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto">
@@ -346,7 +430,8 @@
                 <th class="pb-3">Lavozimi</th>
                 <th class="pb-3">Soatlik Stavka</th>
                 <th class="pb-3">Jami Soat</th>
-                <th class="pb-3">Hisoblangan Maosh</th>
+                <th class="pb-3">Jarima</th>
+                <th class="pb-3">Toza Maosh</th>
                 <th class="pb-3 text-right">To'lov Holati</th>
               </tr>
             </thead>
@@ -355,7 +440,7 @@
             </tbody>
             <tfoot class="border-t border-slate-700 font-bold text-white">
               <tr>
-                <td colspan="4" class="py-4 text-right pr-4 text-slate-300">Jami To'lanishi Kerak Bo'lgan Ish Haqi:</td>
+                <td colspan="5" class="py-4 text-right pr-4 text-slate-300">Jami To'lanishi Kerak Bo'lgan Ish Haqi:</td>
                 <td id="payroll-total-amount" class="py-4 text-emerald-400 text-lg">0 so'm</td>
                 <td></td>
               </tr>
@@ -365,16 +450,15 @@
       </div>
     </div>
 
-    <!-- 5. INVENTORY & ABAROT TAB -->
+    <!-- 6. INVENTORY & ABAROT TAB -->
     <div id="tab-inventory" class="space-y-6 tab-view hidden">
-      <!-- Inventory Top Actions -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 class="font-bold text-lg text-white">Ombor Qoldiqlari va Tovar Abaroti</h3>
-          <p class="text-xs text-slate-400">Mahsulotlar kirimi, oshxona chiqimlari va qoldiq zaxirasi</p>
+          <h3 class="font-bold text-lg text-white">Ombor Qoldiqlari va Sifat Nazorati</h3>
+          <p class="text-xs text-slate-400">Go'sht, sabzavotlar, souslar zaxirasi va iste'molga yaroqlilik muddatlari</p>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="openAddProductModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium text-xs flex items-center gap-1.5">
+          <button onclick="requireAdmin(openAddProductModal)" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium text-xs flex items-center gap-1.5">
             <span>➕</span> Mahsulot qo'shish
           </button>
           <button onclick="openTransactionModal('kirim')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs flex items-center gap-1.5 shadow">
@@ -386,9 +470,8 @@
         </div>
       </div>
 
-      <!-- Inventory Grid / Table -->
       <div class="p-6 rounded-2xl glass-card space-y-4">
-        <h4 class="font-bold text-base text-white">Mahsulotlar Qoldig'i</h4>
+        <h4 class="font-bold text-base text-white">Barcha Mahsulotlar va Yaroqlilik Muddati</h4>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-sm">
             <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
@@ -398,8 +481,9 @@
                 <th class="pb-3">Mavjud Qoldiq</th>
                 <th class="pb-3">Minimal Me'yor</th>
                 <th class="pb-3">Birlik Narxi</th>
-                <th class="pb-3">Umumiy Qiymati</th>
-                <th class="pb-3 text-right">Holat</th>
+                <th class="pb-3">Yaroqlilik Muddati</th>
+                <th class="pb-3">Sifat Holati</th>
+                <th class="pb-3 text-right">Amal</th>
               </tr>
             </thead>
             <tbody id="inventory-table-body" class="divide-y divide-slate-800/60">
@@ -408,117 +492,79 @@
           </table>
         </div>
       </div>
-
-      <!-- Recent Transactions History (Abarot) -->
-      <div class="p-6 rounded-2xl glass-card space-y-4">
-        <h4 class="font-bold text-base text-white">Oxirgi Kirim / Chiqim Operatsiyalari (Abarot)</h4>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm">
-            <thead class="text-xs uppercase text-slate-400 border-b border-slate-800">
-              <tr>
-                <th class="pb-3">Sana / Vaqt</th>
-                <th class="pb-3">Turi</th>
-                <th class="pb-3">Mahsulot</th>
-                <th class="pb-3">Miqdor</th>
-                <th class="pb-3">Summa</th>
-                <th class="pb-3">Sabab / Izoh</th>
-              </tr>
-            </thead>
-            <tbody id="transactions-table-body" class="divide-y divide-slate-800/60">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
 
-    <!-- 5B. MENU & DISHES TAB -->
+    <!-- 7. MENU & RECIPES TAB -->
     <div id="tab-menu" class="space-y-6 tab-view hidden">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 class="font-bold text-lg text-white">Yarim Tayyor Issiq Ovqatlar, Masalliqlar va Souslar</h3>
-          <p class="text-xs text-slate-400">Shokh Restaurant menyusi, kalkulyatsiyasi va porsiya narxlari</p>
+          <h3 class="font-bold text-lg text-white">Taomlar, Yarim Tayyor Issiq Ovqatlar va Souslar</h3>
+          <p class="text-xs text-slate-400">Porsiya narxlari, tayyorlanish muddatlari va retseptura izohlari</p>
         </div>
-        <button onclick="openAddMenuModal()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow flex items-center gap-2">
-          <span>➕</span> Yangi Taom / Sous qo'shish
+        <button onclick="requireAdmin(openAddMenuModal)" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-2 shadow">
+          <span>➕</span> Yangi taom / sous qo'shish
         </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="menu-grid">
-        <!-- Dynamically populated menu cards -->
+      <div id="menu-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Dynamically populated -->
       </div>
     </div>
 
-    <!-- 5C. EQUIPMENT & ASSETS TAB -->
+    <!-- 8. EQUIPMENT TAB -->
     <div id="tab-equipment" class="space-y-6 tab-view hidden">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 class="font-bold text-lg text-white">Jihozlar va Inventarlar Nazorati</h3>
-          <p class="text-xs text-slate-400">Pechlar, fityur, sovutkichlar va oshxona inventarlarining ishga yaroqlilik holati</p>
+          <h3 class="font-bold text-lg text-white">Jihozlar va Oshxona Inventarlari Holati</h3>
+          <p class="text-xs text-slate-400">Pechlar, fityur, sovutgich va pichoqlar to'plami nazorati</p>
         </div>
-        <button onclick="openAddEquipmentModal()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow flex items-center gap-2">
-          <span>➕</span> Yangi Jihoz ro'yxatga olish
+        <button onclick="requireAdmin(openAddEquipmentModal)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-2 shadow">
+          <span>➕</span> Yangi jihoz ro'yxatga olish
         </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="equipment-grid">
-        <!-- Dynamically populated equipment cards -->
+      <div id="equipment-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Dynamically populated -->
       </div>
     </div>
 
-    <!-- 6. AI ASSISTANT TAB -->
-    <div id="tab-ai" class="space-y-4 tab-view hidden flex-1 flex flex-col min-h-[500px]">
-      <div class="p-4 rounded-2xl bg-gradient-to-r from-indigo-900/60 via-slate-900 to-slate-900 border border-indigo-800/40 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xl">
-            🤖
-          </div>
-          <div>
-            <h3 class="font-bold text-white text-base leading-tight">ShokhAI — Aqlli Tahlilchi</h3>
-            <p class="text-xs text-slate-400">Shokh Restaurant xodimlari, tovarlari va hisoblarini real vaqtda tahlil qiluvchi AI</p>
-          </div>
-        </div>
-        <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
-          Faol & Tayyor
-        </span>
-      </div>
-
-      <!-- Quick Suggested Questions Chips -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        <button onclick="askPresetAi('Bugun kimlar ishga keldi?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
-          👥 Bugun kimlar ishda?
+    <!-- 9. SHOKHAI TAB -->
+    <div id="tab-ai" class="space-y-6 tab-view hidden flex flex-col h-full">
+      <div class="flex gap-2 overflow-x-auto pb-1 text-xs">
+        <button onclick="askPresetAi('Bugun kimlar ishda va kimlar kechikdi?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
+          👥 Kimlar ishda?
         </button>
-        <button onclick="askPresetAi('Qaysi tovarlar kam qoldi va nimalar xarid qilish kerak?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
-          ⚠️ Qaysi tovarlar tugayapti?
+        <button onclick="askPresetAi('Mehmonlar uchun eng mazali qaysi taom va souslarni tavsiya qilasan?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
+          🍽️ Taom tavsiyasi
         </button>
-        <button onclick="askPresetAi('Xodimlarning oyliklar hisoboti qanday?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
-          💰 Oyliklar hisoboti
+        <button onclick="askPresetAi('Omborda qaysi mahsulotlar kam qoldi yoki yaroqlilik muddati yaqin?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
+          🥩 Ombor & Yaroqlilik
         </button>
-        <button onclick="askPresetAi('Tovar abaroti va umumiy xulosa ber')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
-          📊 Tovar abaroti tahlili
+        <button onclick="askPresetAi('Kechikishlar va 20 000 dan 200 000 gacha jarimalar hisobotini korsat')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
+          ⚠️ Jarimalar hisoboti
         </button>
         <button onclick="askPresetAi('Restoranning bugungi toliq operatsion hisobotini tayyorlab ber')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition-all border border-slate-700">
-          📋 Umumiy hisobot
+          📋 To'liq hisobot
         </button>
       </div>
 
       <!-- Chat Messages Container -->
       <div id="ai-chat-box" class="flex-1 overflow-y-auto p-4 rounded-2xl glass-card space-y-4 max-h-[500px]">
-        <!-- Welcome Message -->
         <div class="flex gap-3">
           <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-sm shrink-0">
             🤖
           </div>
           <div class="p-4 rounded-2xl rounded-tl-none bg-slate-800/90 text-sm text-slate-200 border border-slate-700/60 max-w-2xl leading-relaxed whitespace-pre-wrap">
-Assalomu alaykum! Men **ShokhAI** — Shokh Restaurant ning shaxsiy aqlli tahlilchisiman. 👑
+Assalomu alaykum! Men **ShokhAI** — Shokh Restaurant ning shaxsiy aqlli yordamchisiman. 👑
 
-Sizga quyidagilar bo'yicha darhol ma'lumot berishim mumkin:
-• Bugun kimlar ishda va qaysi xodimlar kelmadi
-• Qaysi tovarlar tugayapti va nimalar xarid qilish kerak
-• Xodimlarning ishlagan soatlari va oylik hisoblari
-• Tovar aylanmasi (kirim/chiqim balansi)
+Sizga quyidagilar bo'yicha darhol ma'lumot bera olaman:
+• 👥 Xodimlar davomati, smena tartibi va kechikishlar
+• 🍽️ Mehmonlarga issiq taomlar va maxsus souslar tavsiyasi
+• 🥩 Go'sht, sabzavotlar zaxirasi va yaroqlilik muddati
+• 💰 Soatbay maoshlar va qo'llanilgan jarimalar
+• 🔧 Pech, sovutgich va uskunalar holati
 
-Istalgan savolingizni yozing yoki yuqoridagi tayyor tugmalardan birini bosing!
+Istalgan savolingizni yozing yoki yuqoridagi tugmalardan birini bosing!
           </div>
         </div>
       </div>
@@ -528,7 +574,7 @@ Istalgan savolingizni yozing yoki yuqoridagi tayyor tugmalardan birini bosing!
         <input 
           id="ai-prompt-input" 
           type="text" 
-          placeholder="RestoAI ga savol yozing... (masalan: Bugun omborda nima kam?)" 
+          placeholder="ShokhAI ga savol yozing... (masalan: Bugun kimlar ishda? yoki Nima taom tavsiya qilasan?)" 
           class="flex-1 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
         />
         <button 
@@ -541,7 +587,7 @@ Istalgan savolingizni yozing yoki yuqoridagi tayyor tugmalardan birini bosing!
       </form>
     </div>
 
-    <!-- 7. TELEGRAM BOT & SIMULATOR TAB -->
+    <!-- 10. TELEGRAM BOT TAB -->
     <div id="tab-bot" class="space-y-6 tab-view hidden">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         
@@ -552,25 +598,30 @@ Istalgan savolingizni yozing yoki yuqoridagi tayyor tugmalardan birini bosing!
               ✈️
             </div>
             <div>
-              <h3 class="font-bold text-white text-base">Telegram Bot Integratsiyasi</h3>
-              <p class="text-xs text-slate-400">Xodimlar kirdi-chiqdisi va menejer hisobotlari uchun maxsus bot</p>
+              <h3 class="font-bold text-white text-base">Telegram Bildirishnomalar (@shokh0502)</h3>
+              <p class="text-xs text-slate-400">Kechikishlar va smenalar haqida avtomatik xabarlar</p>
             </div>
           </div>
 
           <div class="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs space-y-2 leading-relaxed">
-            <p class="font-semibold text-slate-200">Bot qanday ishlaydi?</p>
-            <p class="text-slate-400">1. Xodimlar Telegramdan <code class="text-indigo-400">/keldim [PIN]</code> yoki <code class="text-indigo-400">/ketdim [PIN]</code> buyrug'ini yozish orqali smenani boshlaydi va tugatadi.</p>
-            <p class="text-slate-400">2. Menejer <code class="text-indigo-400">/hisobot</code> yoki <code class="text-indigo-400">/ombor</code> buyrug'i orqali restoranning joriy holatini bir zumda ko'radi.</p>
-            <p class="text-slate-400">3. <code class="text-indigo-400">/ai [savol]</code> orqali to'g'ridan-to'g'ri Telegramdan sun'iy intellekt bilan muloqot qilish mumkin.</p>
+            <p class="font-semibold text-slate-200">Xabarlar qanday yuboriladi?</p>
+            <p class="text-slate-400">1. Xodim ishga kechiksa, tizim darhol Telegram orqali ogohlantirish yuboradi.</p>
+            <p class="text-slate-400">2. Bot Token va Chat ID kiritilsa, bevosita sizning Telegramingizga keladi.</p>
+            <p class="text-slate-400">3. Telegram bot simulyatori orqali botni istalgan payt sinab ko'rish mumkin.</p>
           </div>
 
           <div class="space-y-3 pt-2">
-            <label class="block text-xs font-semibold uppercase text-slate-400">Telegram Bot Token (Ixtiyoriy, jonli bot uchun):</label>
-            <input id="bot-token-input" type="text" placeholder="Masalan: 123456789:ABCdefGhIJKlmNoPQRstuVWXyz" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-sky-500">
-            <p class="text-[11px] text-slate-500">Hozirda botni o'ng tarafdagi o'rnatilgan <strong>Telegram Simulyatori</strong> orqali tokengiz bo'lmasa ham to'liq sinab ko'rishingiz mumkin!</p>
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Telegram Bot Token:</label>
+              <input id="bot-token-input" type="text" placeholder="Masalan: 123456789:ABCdefGhIJKlmNoPQRstuVWXyz" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-sky-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Telegram Chat ID (Sizning ID raqamingiz):</label>
+              <input id="bot-chatid-input" type="text" placeholder="Masalan: 987654321" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-sky-500">
+            </div>
           </div>
 
-          <button onclick="saveBotSettings()" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm transition-all shadow">
+          <button onclick="requireAdmin(saveBotSettings)" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm transition-all shadow">
             Sozlamalarni saqlash
           </button>
         </div>
@@ -583,42 +634,37 @@ Istalgan savolingizni yozing yoki yuqoridagi tayyor tugmalardan birini bosing!
             </h4>
             <span class="text-xs text-sky-400 font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20">Jonli Sinov</span>
           </div>
-          <p class="text-xs text-slate-400">Ushbu telefon interfeysi orqali bot buyruqlarini sinab ko'ring:</p>
 
-          <!-- Telegram Screen Mockup -->
           <div class="rounded-2xl border-2 border-slate-700 bg-slate-900 p-3 space-y-3 shadow-2xl">
-            <!-- Simulated Chat Header -->
             <div class="flex items-center gap-2.5 pb-2 border-b border-slate-800">
               <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow">
                 SR
               </div>
               <div>
                 <p class="text-xs font-bold text-white leading-tight">Shokh Restaurant Bot</p>
-                <p class="text-[10px] text-slate-400">@shokh_restaurant_bot</p>
+                <p class="text-[10px] text-slate-400">@shokh0502 xizmatida</p>
               </div>
             </div>
 
-            <!-- Chat messages inside simulator -->
             <div id="sim-messages" class="h-64 overflow-y-auto space-y-2.5 pr-1 text-xs">
               <div class="p-2.5 rounded-xl bg-slate-800 text-slate-200 border border-slate-700/60 max-w-[85%] whitespace-pre-wrap leading-relaxed">
 👑 <strong>Shokh Restaurant</strong> rasmiy botiga xush kelibsiz!
 
 Mavjud buyruqlar:
-🟢 <code>/keldim 1111</code> (Aziz Rahimov)
-🔴 <code>/ketdim 1111</code>
+🟢 <code>/keldim 3003</code> (Bobur Mirzayev)
+🔴 <code>/ketdim 3003</code>
 📊 <code>/hisobot</code>
 📦 <code>/ombor</code>
 🤖 <code>/ai kimlar ishda?</code>
               </div>
             </div>
 
-            <!-- Quick preset buttons for simulator -->
             <div class="flex gap-1.5 overflow-x-auto text-[11px] pt-1">
-              <button onclick="sendSimMessage('/keldim 1111')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap border border-slate-700">
-                /keldim 1111
+              <button onclick="sendSimMessage('/keldim 3003')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap border border-slate-700">
+                /keldim 3003
               </button>
-              <button onclick="sendSimMessage('/ketdim 1111')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap border border-slate-700">
-                /ketdim 1111
+              <button onclick="sendSimMessage('/ketdim 3003')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap border border-slate-700">
+                /ketdim 3003
               </button>
               <button onclick="sendSimMessage('/hisobot')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap border border-slate-700">
                 /hisobot
@@ -628,9 +674,8 @@ Mavjud buyruqlar:
               </button>
             </div>
 
-            <!-- Simulator input form -->
             <form onsubmit="handleSimSubmit(event)" class="flex gap-1.5 pt-1">
-              <input id="sim-input" type="text" placeholder="/keldim 1111 yoki /hisobot" class="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-sky-500">
+              <input id="sim-input" type="text" placeholder="/keldim 3003 yoki /hisobot" class="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-sky-500">
               <button type="submit" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs">
                 Yuborish
               </button>
@@ -651,8 +696,8 @@ Mavjud buyruqlar:
     <button onclick="switchTab('attendance')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white text-[10px] mobile-nav-btn" id="mob-attendance">
       <span class="text-base">⏱️</span> Davomat
     </button>
-    <button onclick="switchTab('staff')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white text-[10px] mobile-nav-btn" id="mob-staff">
-      <span class="text-base">👥</span> Xodimlar
+    <button onclick="switchTab('schedule')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white text-[10px] mobile-nav-btn" id="mob-schedule">
+      <span class="text-base">📅</span> Jadval
     </button>
     <button onclick="switchTab('payroll')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white text-[10px] mobile-nav-btn" id="mob-payroll">
       <span class="text-base">💰</span> Oylik
@@ -667,6 +712,32 @@ Mavjud buyruqlar:
 
   <!-- ==================== MODALS ==================== -->
 
+  <!-- 0. ADMIN LOGIN MODAL -->
+  <div id="modal-admin-login" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-amber-500/40 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl text-center">
+      <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-2xl">
+        🔐
+      </div>
+      <div>
+        <h3 class="font-bold text-lg text-white">Admin Tasdiqlash</h3>
+        <p class="text-xs text-slate-400 mt-1">Muhim amallarni bajarish uchun parolni kiriting</p>
+      </div>
+      <form onsubmit="handleAdminLoginSubmit(event)" class="space-y-3">
+        <input 
+          id="admin-password-input" 
+          type="password" 
+          required 
+          placeholder="Parol (shokh2006)" 
+          class="w-full px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-center text-sm focus:outline-none focus:border-amber-500 tracking-wider font-mono"
+        />
+        <div class="flex gap-2">
+          <button type="button" onclick="closeAdminLoginModal()" class="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Bekor qilish</button>
+          <button type="submit" class="w-1/2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow">Kirish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- 1. PIN Kiosk Modal -->
   <div id="modal-pin" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-sm space-y-5 text-center shadow-2xl">
@@ -676,7 +747,6 @@ Mavjud buyruqlar:
       </div>
       <p class="text-xs text-slate-400">4 xonali shaxsiy PIN-kodingizni kiriting:</p>
 
-      <!-- PIN Display -->
       <div class="flex justify-center items-center gap-3 py-2">
         <div id="pin-dots" class="flex gap-3 text-2xl font-bold tracking-widest text-emerald-400 h-10 items-center justify-center">
           <span class="w-3.5 h-3.5 rounded-full bg-slate-700 inline-block pin-dot"></span>
@@ -686,7 +756,6 @@ Mavjud buyruqlar:
         </div>
       </div>
 
-      <!-- Action Choice: Keldim or Ketdim -->
       <div class="grid grid-cols-2 gap-2 text-xs font-bold">
         <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 cursor-pointer">
           <input type="radio" name="kiosk_action" value="clock-in" checked class="accent-emerald-500"> 🟢 KELDIM
@@ -696,20 +765,19 @@ Mavjud buyruqlar:
         </label>
       </div>
 
-      <!-- Keypad (0-9, Backspace, Submit) -->
       <div class="grid grid-cols-3 gap-2 pt-2">
-        <button onclick="pressPin('1')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">1</button>
-        <button onclick="pressPin('2')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">2</button>
-        <button onclick="pressPin('3')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">3</button>
-        <button onclick="pressPin('4')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">4</button>
-        <button onclick="pressPin('5')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">5</button>
-        <button onclick="pressPin('6')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">6</button>
-        <button onclick="pressPin('7')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">7</button>
-        <button onclick="pressPin('8')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">8</button>
-        <button onclick="pressPin('9')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">9</button>
-        <button onclick="clearPin()" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold text-sm transition-all">Tozalash</button>
-        <button onclick="pressPin('0')" class="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xl transition-all">0</button>
-        <button onclick="submitPinAction()" class="py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-all shadow">Tasdiqlash ✓</button>
+        <button onclick="pressPin('1')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">1</button>
+        <button onclick="pressPin('2')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">2</button>
+        <button onclick="pressPin('3')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">3</button>
+        <button onclick="pressPin('4')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">4</button>
+        <button onclick="pressPin('5')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">5</button>
+        <button onclick="pressPin('6')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">6</button>
+        <button onclick="pressPin('7')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">7</button>
+        <button onclick="pressPin('8')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">8</button>
+        <button onclick="pressPin('9')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">9</button>
+        <button onclick="clearPin()" class="py-3 rounded-2xl bg-slate-800/60 hover:bg-slate-700 text-sm font-semibold text-rose-400">Tozalash</button>
+        <button onclick="pressPin('0')" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xl font-bold text-white transition-all active:scale-95">0</button>
+        <button onclick="submitPin()" class="py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white shadow-lg shadow-emerald-500/30">Tasdiq</button>
       </div>
     </div>
   </div>
@@ -721,83 +789,118 @@ Mavjud buyruqlar:
         <h3 class="font-bold text-lg text-white">Yangi Xodim Qo'shish</h3>
         <button onclick="closeAddStaffModal()" class="text-slate-400 hover:text-white font-bold text-lg">&times;</button>
       </div>
-
       <form onsubmit="handleAddStaff(event)" class="space-y-3">
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">F.I.SH (Ism-Familiya):</label>
-          <input id="staff-name-input" type="text" required placeholder="Masalan: Sardor Umarov" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">F.I.SH:</label>
+          <input id="staff-name-input" type="text" required placeholder="Masalan: Aziz Rahimov" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
         </div>
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Lavozimi (Shokh Restaurant Iyerarxiyasi):</label>
-          <select id="staff-role-select" onchange="handleRoleChange(this.value)" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
-            <option value="Stajor|15000">Stajor (15,000 so'm/soat)</option>
-            <option value="Povur (Oshpaz)|17000">Povur / Oshpaz (17,000 so'm/soat)</option>
-            <option value="Universal|18000">Universal (18,000 so'm/soat)</option>
-            <option value="Lider (1-pozitsiya)|20000">Lider 1-pozitsiya (20,000 so'm/soat)</option>
-            <option value="Lider (2-pozitsiya)|22000">Lider 2-pozitsiya (22,000 so'm/soat)</option>
-            <option value="Menejer|28000">Menejer (28,000 so'm/soat)</option>
-            <option value="Direktor|35000">Direktor (35,000 so'm/soat)</option>
-            <option value="Tozalik xodimasi|15000">Tozalik xodimasi (15,000 so'm/soat)</option>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Lavozimi va Soatbay Narxi:</label>
+          <select id="staff-role-select" onchange="handleRoleChange(this.value)" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+            <option value="Direktor|35000">Direktor — 35 000 so'm/soat</option>
+            <option value="Menejer|28000">Menejer — 28 000 so'm/soat</option>
+            <option value="Lider (2-pozitsiya)|22000">Lider (2-pozitsiya) — 22 000 so'm/soat</option>
+            <option value="Lider (1-pozitsiya)|20000">Lider (1-pozitsiya) — 20 000 so'm/soat</option>
+            <option value="Universal|18000">Universal — 18 000 so'm/soat</option>
+            <option value="Povur (Oshpaz)|17000" selected>Povur (Oshpaz) — 17 000 so'm/soat</option>
+            <option value="Stajor|15000">Stajor — 15 000 so'm/soat</option>
+            <option value="Tozalik xodimasi|15000">Tozalik xodimasi — 15 000 so'm/soat</option>
           </select>
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Soatlik stavka (so'm):</label>
+            <input id="staff-rate-input" type="number" required value="17000" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">4 xonali PIN:</label>
+            <input id="staff-pin-input" type="text" maxlength="4" required placeholder="6007" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm font-mono">
+          </div>
+        </div>
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Smena tartibi:</label>
-          <select id="staff-shift-input" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Smena Tanlovi:</label>
+          <select id="staff-shift-input" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
             <option value="1-smena (09:00 - 19:00)">1-smena (09:00 - 19:00)</option>
             <option value="2-smena (13:00 - 23:00)">2-smena (13:00 - 23:00)</option>
           </select>
         </div>
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Telefon raqami:</label>
-          <input id="staff-phone-input" type="text" placeholder="+998 90 123 45 67" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <input id="staff-phone-input" type="tel" placeholder="+998 90 123 45 67" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">PIN-Kod (4 xona):</label>
-            <input id="staff-pin-input" type="text" maxlength="6" required placeholder="7777" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Soatlik Stavka (so'm):</label>
-            <input id="staff-rate-input" type="number" required value="15000" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
-          </div>
-        </div>
-
         <div class="pt-3 flex gap-2">
           <button type="button" onclick="closeAddStaffModal()" class="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm">Bekor qilish</button>
-          <button type="submit" class="w-1/2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow">Qo'shish</button>
+          <button type="submit" class="w-1/2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow">Saqlash</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- 3. Add Inventory Product Modal -->
+  <!-- 3. Add Schedule Modal -->
+  <div id="modal-add-schedule" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-lg text-white">Smenaga Xodim Biriktirish</h3>
+        <button onclick="closeAddScheduleModal()" class="text-slate-400 hover:text-white font-bold text-lg">&times;</button>
+      </div>
+      <form onsubmit="handleSaveSchedule(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Xodimni tanlang:</label>
+          <select id="sch-staff-select" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+            <!-- Dynamic staff options -->
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Sana:</label>
+            <input id="sch-date-input" type="date" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Smena:</label>
+            <select id="sch-shift-select" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+              <option value="1">1-smena (09:00 - 19:00)</option>
+              <option value="2">2-smena (13:00 - 23:00)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Izoh / Vazifasi:</label>
+          <input id="sch-notes-input" type="text" placeholder="Masalan: Issiq oshxona lideri" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+        </div>
+        <div class="pt-3 flex gap-2">
+          <button type="button" onclick="closeAddScheduleModal()" class="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm">Bekor qilish</button>
+          <button type="submit" class="w-1/2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow">Jadvalga kiritish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Add Product Modal -->
   <div id="modal-add-product" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 class="font-bold text-lg text-white">Yangi Mahsulot Kiritish</h3>
         <button onclick="closeAddProductModal()" class="text-slate-400 hover:text-white font-bold text-lg">&times;</button>
       </div>
-
       <form onsubmit="handleAddProduct(event)" class="space-y-3">
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Mahsulot Nomi:</label>
-          <input id="product-name-input" type="text" required placeholder="Masalan: Go'sht (mol), Guruch" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Nomi:</label>
+          <input id="product-name-input" type="text" required placeholder="Masalan: Mol go'shti (marinovka)" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Kategoriya:</label>
-            <select id="product-cat-input" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+            <select id="product-cat-input" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
               <option value="Go'sht mahsulotlari">Go'sht mahsulotlari</option>
               <option value="Sabzavotlar">Sabzavotlar</option>
-              <option value="Don mahsulotlari">Don mahsulotlari</option>
-              <option value="Yog' va sut">Yog' va sut</option>
-              <option value="Ichimliklar">Ichimliklar</option>
-              <option value="Ziravorlar va boshqa">Ziravorlar va boshqa</option>
+              <option value="Souslar va ziravorlar">Souslar va ziravorlar</option>
+              <option value="Yarim tayyor issiq mahsulotlar">Yarim tayyor issiq ovqatlar</option>
+              <option value="Qadoq va xo'jalik">Qadoq va xo'jalik</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Birlik:</label>
-            <select id="product-unit-input" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">O'lchov birligi:</label>
+            <select id="product-unit-input" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
               <option value="kg">kg</option>
               <option value="litr">litr</option>
               <option value="dona">dona</option>
@@ -805,10 +908,9 @@ Mavjud buyruqlar:
             </select>
           </div>
         </div>
-
         <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">Boshlang'ich qoldiq:</label>
+            <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">Qoldiq:</label>
             <input id="product-stock-input" type="number" step="0.1" required placeholder="10" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
           </div>
           <div>
@@ -816,11 +918,14 @@ Mavjud buyruqlar:
             <input id="product-min-input" type="number" step="0.1" required placeholder="5" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
           </div>
           <div>
-            <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">1 birlik narxi:</label>
+            <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">Narxi (so'm):</label>
             <input id="product-price-input" type="number" required placeholder="25000" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
           </div>
         </div>
-
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Iste'molga Yaroqlilik Muddati:</label>
+          <input id="product-expiry-input" type="date" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+        </div>
         <div class="pt-3 flex gap-2">
           <button type="button" onclick="closeAddProductModal()" class="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm">Bekor qilish</button>
           <button type="submit" class="w-1/2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow">Saqlash</button>
@@ -829,44 +934,39 @@ Mavjud buyruqlar:
     </div>
   </div>
 
-  <!-- 4. Inventory Transaction Modal (Kirim / Chiqim) -->
+  <!-- 5. Inventory Transaction Modal -->
   <div id="modal-transaction" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 id="modal-trans-title" class="font-bold text-lg text-white">Tovar Kirim / Chiqim</h3>
         <button onclick="closeTransactionModal()" class="text-slate-400 hover:text-white font-bold text-lg">&times;</button>
       </div>
-
       <form onsubmit="handleTransactionSubmit(event)" class="space-y-3">
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Amal turi:</label>
           <div class="grid grid-cols-2 gap-2">
             <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 cursor-pointer font-bold text-xs">
-              <input type="radio" name="trans_type" id="trans-type-kirim" value="kirim" checked class="accent-emerald-500"> 📥 KIRIM (Keltirildi)
+              <input type="radio" name="trans_type" id="trans-type-kirim" value="kirim" checked class="accent-emerald-500"> 📥 KIRIM
             </label>
             <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-400 cursor-pointer font-bold text-xs">
-              <input type="radio" name="trans_type" id="trans-type-chiqim" value="chiqim" class="accent-rose-500"> 📤 CHIQIM (Sarflandi)
+              <input type="radio" name="trans_type" id="trans-type-chiqim" value="chiqim" class="accent-rose-500"> 📤 CHIQIM
             </label>
           </div>
         </div>
-
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Mahsulotni tanlang:</label>
-          <select id="trans-product-select" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
-            <!-- Dynamically populated from products -->
+          <select id="trans-product-select" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+            <!-- Dynamically populated -->
           </select>
         </div>
-
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Miqdori:</label>
-          <input id="trans-qty-input" type="number" step="0.1" required placeholder="Masalan: 10" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <input id="trans-qty-input" type="number" step="0.1" required placeholder="Masalan: 10" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
         </div>
-
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Sabab / Izoh:</label>
-          <input id="trans-reason-input" type="text" placeholder="Masalan: Oshxonaga sarflandi yoki 'Halol Go'sht'dan qabul qilindi" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <input id="trans-reason-input" type="text" placeholder="Masalan: Oshxonaga sarflandi" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
         </div>
-
         <div class="pt-3 flex gap-2">
           <button type="button" onclick="closeTransactionModal()" class="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm">Bekor qilish</button>
           <button type="submit" class="w-1/2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow">Amalni bajarish</button>
@@ -875,7 +975,7 @@ Mavjud buyruqlar:
     </div>
   </div>
 
-  <!-- 5. Penalty (Jarima) Modal -->
+  <!-- 6. Penalty Modal -->
   <div id="modal-penalty" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-rose-500/40 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
@@ -884,9 +984,7 @@ Mavjud buyruqlar:
         </h3>
         <button onclick="closePenaltyModal()" class="text-slate-400 hover:text-white font-bold text-lg">&times;</button>
       </div>
-
-      <p class="text-xs text-slate-400">Strategiya bo'yicha sababsiz kechikish yoki smenaga chiqmaganlik uchun: <strong class="text-rose-400">20 000 — 200 000 so'm</strong>.</p>
-
+      <p class="text-xs text-slate-400">Sababsiz kechikish yoki smenaga chiqmaganlik uchun: <strong class="text-rose-400">20 000 — 200 000 so'm</strong>.</p>
       <form onsubmit="handlePenaltySubmit(event)" class="space-y-3">
         <input type="hidden" id="penalty-att-id">
         <div>
@@ -895,7 +993,7 @@ Mavjud buyruqlar:
         </div>
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Jarima summasi (so'm):</label>
-          <input id="penalty-amount-input" type="number" min="20000" max="200000" step="5000" value="20000" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-rose-400 text-base font-bold focus:outline-none focus:border-rose-500">
+          <input id="penalty-amount-input" type="number" min="20000" max="200000" step="5000" value="20000" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-rose-400 text-base font-bold">
           <div class="flex gap-2 pt-1 text-[11px]">
             <button type="button" onclick="document.getElementById('penalty-amount-input').value=20000" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">20 000 (Min)</button>
             <button type="button" onclick="document.getElementById('penalty-amount-input').value=50000" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">50 000</button>
@@ -905,7 +1003,7 @@ Mavjud buyruqlar:
         </div>
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Jarima Sababi:</label>
-          <input id="penalty-reason-input" type="text" required placeholder="Masalan: 20 daqiqa sababsiz kechikish" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-rose-500">
+          <input id="penalty-reason-input" type="text" required placeholder="Masalan: 20 daqiqa sababsiz kechikish" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
         </div>
         <div class="pt-3 flex gap-2">
           <button type="button" onclick="closePenaltyModal()" class="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm">Bekor qilish</button>
@@ -915,14 +1013,13 @@ Mavjud buyruqlar:
     </div>
   </div>
 
-  <!-- 6. Add Menu Item Modal -->
+  <!-- 7. Add Menu Item Modal -->
   <div id="modal-add-menu" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 class="font-bold text-lg text-white">Yangi Taom / Sous Qo'shish</h3>
         <button onclick="closeAddMenuModal()" class="text-slate-400 hover:text-white font-bold text-lg">&times;</button>
       </div>
-
       <form onsubmit="handleAddMenu(event)" class="space-y-3">
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Nomi:</label>
@@ -949,7 +1046,7 @@ Mavjud buyruqlar:
         </div>
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Masalliqlar / Retseptura izohi:</label>
-          <input id="menu-recipe-input" type="text" placeholder="Masalan: Tovuq filesi + Shokh qizil sous + sabzavot garniri" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
+          <input id="menu-recipe-input" type="text" placeholder="Masalan: Tovuq filesi + Shokh qizil sous" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm">
         </div>
         <div class="pt-3 flex gap-2">
           <button type="button" onclick="closeAddMenuModal()" class="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm">Bekor qilish</button>
@@ -959,14 +1056,13 @@ Mavjud buyruqlar:
     </div>
   </div>
 
-  <!-- 7. Add Equipment Modal -->
+  <!-- 8. Add Equipment Modal -->
   <div id="modal-add-equipment" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 class="font-bold text-lg text-white">Yangi Jihoz / Inventar Kiritish</h3>
         <button onclick="closeAddEquipmentModal()" class="text-slate-400 hover:text-white font-bold text-lg">&times;</button>
       </div>
-
       <form onsubmit="handleAddEquipment(event)" class="space-y-3">
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Jihoz Nomi:</label>
@@ -1006,6 +1102,8 @@ Mavjud buyruqlar:
       </form>
     </div>
   </div>
+
+  <!-- Toast Notification -->
   <div id="toast" class="fixed bottom-20 md:bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
     <div class="px-4 py-3 rounded-2xl bg-slate-800 text-white border border-slate-700 shadow-2xl flex items-center gap-3 text-sm">
       <span id="toast-icon">✅</span>
