@@ -1,17 +1,11 @@
-"""
-Shokh Restaurant Backend HTTP & REST API Server.
-Customized for Shokh Restaurant:
-- 2 Shifts (09:00 - 19:00, 13:00 - 23:00)
-- Hourly hierarchy rates
-- Penalties (20,000 - 200,000 UZS)
-- Menu & Semi-finished items
-- Equipment & Asset tracking
-"""
 import os
 import sys
 import json
 import sqlite3
 import mimetypes
+import urllib.request
+import urllib.error
+import ssl
 from datetime import datetime, timedelta
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -23,6 +17,29 @@ from ai_assistant import query_resto_ai
 from telegram_bot import handle_telegram_message
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+
+def send_telegram_notification(message: str, db_conn):
+    """Telegram orqali xabar yuborish (agar sozlangan bo'lsa)"""
+    try:
+        cursor = db_conn.cursor()
+        cursor.execute("SELECT value FROM settings WHERE key='telegram_bot_token'")
+        row = cursor.fetchone()
+        bot_token = row["value"] if row else ""
+        cursor.execute("SELECT value FROM settings WHERE key='telegram_chat_id'")
+        row2 = cursor.fetchone()
+        chat_id = row2["value"] if row2 else ""
+        if not bot_token or not chat_id:
+            return False
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = json.dumps({"chat_id": chat_id, "text": message, "parse_mode": "HTML"}).encode()
+        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
 
 class ShokhHandler(BaseHTTPRequestHandler):
     def end_headers(self):
@@ -196,6 +213,72 @@ class ShokhHandler(BaseHTTPRequestHandler):
                 db.close()
                 return self.send_json(settings_map)
 
+            # 10. Chart/Statistics data
+            elif path == "/api/stats/chart":
+                # Attendance by day (last 7 days)
+                days_data = []
+                for i in range(6, -1, -1):
+                    d = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+                    cursor.execute("SELECT COUNT(*) as cnt FROM attendance WHERE date(clock_in)=?", (d,))
+                    cnt = cursor.fetchone()["cnt"]
+                    days_data.append({"date": d, "count": cnt})
+                # Payroll by staff
+                cursor.execute("""
+                    SELECT s.name, s.role,
+                           COALESCE(SUM(a.total_hours * s.hourly_rate), 0) as earned,
+                           COALESCE(SUM(a.penalty_amount), 0) as penalty
+                    FROM staff s LEFT JOIN attendance a ON s.id=a.staff_id
+                    WHERE s.status='active'
+                    GROUP BY s.id ORDER BY earned DESC LIMIT 10
+                """)
+                payroll_chart = [{"name": r["name"], "role": r["role"],
+                                  "net": round(r["earned"] - r["penalty"], 0)} for r in cursor.fetchall()]
+                db.close()
+                return self.send_json({"attendance_by_day": days_data, "payroll_by_staff": payroll_chart})
+
+            # 11. Shift Schedule (Haftalik jadval)
+            elif path == "/api/schedule":
+                days_ahead = int(query.get("days", ["14"])[0])
+                start = datetime.now().strftime("%Y-%m-%d")
+                end = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+                cursor.execute("""
+                    SELECT ss.id, ss.date, ss.shift_number, ss.notes,
+                           s.name as staff_name, s.role, s.hourly_rate
+                    FROM shift_schedule ss JOIN staff s ON ss.staff_id=s.id
+                    WHERE ss.date BETWEEN ? AND ?
+                    ORDER BY ss.date ASC, ss.shift_number ASC
+                """, (start, end))
+                schedule = [dict(r) for r in cursor.fetchall()]
+                db.close()
+                return self.send_json(schedule)
+
+            # 12. Payroll CSV Export
+            elif path == "/api/payroll/csv":
+                cursor.execute("""
+                    SELECT s.name, s.role, s.hourly_rate,
+                           COALESCE(SUM(a.total_hours),0) as total_hours,
+                           COALESCE(SUM(a.total_hours*s.hourly_rate),0) as earned,
+                           COALESCE(SUM(a.penalty_amount),0) as penalty
+                    FROM staff s LEFT JOIN attendance a ON s.id=a.staff_id
+                    WHERE s.status='active' GROUP BY s.id ORDER BY earned DESC
+                """)
+                rows = cursor.fetchall()
+                db.close()
+                csv_lines = ["Xodim,Lavozimi,Stavka (soat),Ishlagan soat,Hisoblangan,Jarima,Toza oylik"]
+                for r in rows:
+                    net = round(r["earned"] - r["penalty"], 0)
+                    csv_lines.append(f"{r['name']},{r['role']},{int(r['hourly_rate'])},{round(r['total_hours'],2)},{int(r['earned'])},{int(r['penalty'])},{int(net)}")
+                csv_text = "\n".join(csv_lines)
+                csv_bytes = ("\ufeff" + csv_text).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition", "attachment; filename=Shokh_Oylik.csv")
+                self.send_header("Content-Length", str(len(csv_bytes)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(csv_bytes)
+                return
+
             db.close()
             return self.send_json({"error": "Endpoint not found"}, status=404)
 
@@ -294,6 +377,15 @@ class ShokhHandler(BaseHTTPRequestHandler):
             db.close()
 
             late_msg = f" (Diqqat: {late_minutes} daqiqa kechikdi. Jarima: {penalty:,.0f} so'm)" if is_late else ""
+            # Telegram notification for late arrival
+            if is_late:
+                tg_text = (f"⚠️ <b>Kechikish bildirishnomasi</b>\n"
+                           f"👤 Xodim: <b>{staff_name}</b>\n"
+                           f"⏰ Kelish vaqti: {now_str}\n"
+                           f"🔴 Kechikish: {late_minutes} daqiqa\n"
+                           f"💸 Jarima: {penalty:,.0f} so'm\n"
+                           f"📍 Smena: {shift_name}")
+                send_telegram_notification(tg_text, db)
             return self.send_json({
                 "success": True,
                 "message": f"{staff_name} {shift_name}ga ishga keldi deb belgilandi!{late_msg}",
@@ -505,7 +597,56 @@ class ShokhHandler(BaseHTTPRequestHandler):
             db.close()
             return self.send_json({"reply": bot_reply})
 
-        # 11. Reset Database to Clean Slate (Toza varaqdan boshlash)
+        # 11. Admin Login
+        elif path == "/api/auth/login":
+            password = body.get("password", "")
+            cursor.execute("SELECT value FROM settings WHERE key='admin_password'")
+            row = cursor.fetchone()
+            correct = row["value"] if row else "shokh2006"
+            db.close()
+            if password == correct:
+                return self.send_json({"success": True, "message": "Xush kelibsiz, Admin!"})
+            return self.send_json({"success": False, "error": "Noto'g'ri parol!"}, status=401)
+
+        # 12. Update Settings
+        elif path == "/api/settings/update":
+            key = body.get("key", "")
+            value = body.get("value", "")
+            allowed_keys = ["telegram_bot_token", "telegram_chat_id", "admin_password", "restaurant_name"]
+            if key not in allowed_keys:
+                db.close()
+                return self.send_json({"success": False, "error": "Ruxsatsiz kalit!"}, status=400)
+            cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+            db.commit()
+            db.close()
+            return self.send_json({"success": True, "message": f"'{key}' yangilandi!"})
+
+        # 13. Save Shift Schedule Entry
+        elif path == "/api/schedule/save":
+            staff_id = body.get("staff_id")
+            date = body.get("date")
+            shift_number = int(body.get("shift_number", 1))
+            notes = body.get("notes", "")
+            if not staff_id or not date:
+                db.close()
+                return self.send_json({"success": False, "error": "staff_id va date kerak!"}, status=400)
+            cursor.execute("DELETE FROM shift_schedule WHERE staff_id=? AND date=? AND shift_number=?",
+                           (staff_id, date, shift_number))
+            cursor.execute("INSERT INTO shift_schedule (staff_id, date, shift_number, notes) VALUES (?,?,?,?)",
+                           (staff_id, date, shift_number, notes))
+            db.commit()
+            db.close()
+            return self.send_json({"success": True, "message": "Jadvalga qo'shildi!"})
+
+        # 14. Delete Schedule Entry
+        elif path == "/api/schedule/delete":
+            sch_id = body.get("id")
+            cursor.execute("DELETE FROM shift_schedule WHERE id=?", (sch_id,))
+            db.commit()
+            db.close()
+            return self.send_json({"success": True, "message": "Jadvaldan o'chirildi!"})
+
+        # 15. Reset Database to Clean Slate (Toza varaqdan boshlash)
         elif path == "/api/database/reset":
             cursor.execute("DELETE FROM attendance")
             cursor.execute("DELETE FROM inventory_transactions")
