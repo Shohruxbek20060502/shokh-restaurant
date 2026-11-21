@@ -1,20 +1,16 @@
 """
-ShokhAI - Intelligent Operations Analyst for Shokh Restaurant.
-Deeply customized to the operational strategy:
-- 2 Shifts: 1-smena (09:00-19:00), 2-smena (13:00-23:00)
-- Hourly hierarchy: Stajor 15k, Povur 17k, Universal 18k, Lider-1 20k, Lider-2 22k, Menejer 28k, Direktor 35k, Tozalik 15k
-- Penalty tracker: 20k - 200k UZS
-- Expiry & Freshness checker (Go'sht, sabzavotlar, souslar)
-- Equipment & Asset condition status
+ShokhAI - Shokh Restaurant aqlli operatsion yordamchisi va konsultanti.
+Mehmonlar va xodimlar/rahbariyat savollariga moslashuvchan, tabiiy va aqlli javob beradi.
 """
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def query_resto_ai(prompt: str, db_conn) -> str:
     cursor = db_conn.cursor()
-    prompt_lower = prompt.lower().strip()
+    p = prompt.lower().strip()
 
-    # 1. Staff & active attendance
+    # Bazadagi dolzarb ma'lumotlarni yig'ish
+    # 1. Xodimlar va davomat
     cursor.execute("""
         SELECT s.id, s.name, s.role, s.hourly_rate, s.shift_preference,
                a.clock_in, a.shift_name, a.is_late, a.late_minutes, a.penalty_amount, a.penalty_reason
@@ -23,162 +19,174 @@ def query_resto_ai(prompt: str, db_conn) -> str:
         WHERE s.status = 'active'
         ORDER BY s.hourly_rate DESC
     """)
-    active_staff = cursor.fetchall()
-    active_count = sum(1 for row in active_staff if row["clock_in"] is not None)
-    total_staff = len(active_staff)
+    staff_rows = cursor.fetchall()
+    active_workers = [r for r in staff_rows if r["clock_in"]]
+    absent_workers = [r for r in staff_rows if not r["clock_in"]]
 
-    # 2. Late arrivals & penalties today
+    # 2. Jarimalar
     cursor.execute("""
         SELECT a.*, s.name as staff_name, s.role as staff_role
-        FROM attendance a
-        JOIN staff s ON a.staff_id = s.id
+        FROM attendance a JOIN staff s ON a.staff_id = s.id
         WHERE a.is_late = 1 OR a.penalty_amount > 0
-        ORDER BY a.clock_in DESC
+        ORDER BY a.clock_in DESC LIMIT 10
     """)
-    penalties_list = cursor.fetchall()
+    penalties = cursor.fetchall()
 
-    # 3. Low stock and expiring items
-    cursor.execute("""
-        SELECT name, category, current_stock, min_stock, unit, unit_price, expiry_date, freshness_status
-        FROM inventory
-        WHERE current_stock <= min_stock OR freshness_status = 'muddati_yaqin'
-        ORDER BY current_stock ASC
-    """)
-    critical_items = cursor.fetchall()
+    # 3. Ombor va yaroqlilik
+    cursor.execute("SELECT * FROM inventory ORDER BY current_stock ASC")
+    inv_items = cursor.fetchall()
+    critical_items = [i for i in inv_items if i["current_stock"] <= i["min_stock"] or i["freshness_status"] == "muddati_yaqin"]
 
-    # 4. Equipment condition
-    cursor.execute("""
-        SELECT name, category, condition, location, notes
-        FROM equipment
-        WHERE condition != 'yaroqli'
-    """)
-    broken_equipment = cursor.fetchall()
+    # 4. Menyu
+    cursor.execute("SELECT * FROM menu_items ORDER BY category ASC")
+    menu_items = cursor.fetchall()
 
-    # 5. Total payroll & hours
+    # 5. Jihozlar
+    cursor.execute("SELECT * FROM equipment")
+    equipment_items = cursor.fetchall()
+    broken_eq = [e for e in equipment_items if e["condition"] != "yaroqli"]
+
+    # 6. Oylik hisobi
     cursor.execute("""
         SELECT s.name, s.role, s.hourly_rate,
                COALESCE(SUM(a.total_hours), 0) as total_h,
                COALESCE(SUM(a.total_hours * s.hourly_rate), 0) as earned,
-               COALESCE(SUM(a.penalty_amount), 0) as total_penalties
-        FROM staff s
-        LEFT JOIN attendance a ON s.id = a.staff_id
+               COALESCE(SUM(a.penalty_amount), 0) as pen
+        FROM staff s LEFT JOIN attendance a ON s.id = a.staff_id
+        WHERE s.status = 'active'
         GROUP BY s.id
-        ORDER BY s.hourly_rate DESC
     """)
-    payroll_stats = cursor.fetchall()
-    total_payroll_est = sum(row["earned"] - row["total_penalties"] for row in payroll_stats)
+    pay_rows = cursor.fetchall()
+    total_payroll = sum(r["earned"] - r["pen"] for r in pay_rows)
 
-    # 6. Inventory Turnover
-    cursor.execute("""
-        SELECT 
-            COALESCE(SUM(CASE WHEN type = 'kirim' THEN total_cost ELSE 0 END), 0) as total_in,
-            COALESCE(SUM(CASE WHEN type = 'chiqim' THEN total_cost ELSE 0 END), 0) as total_out
-        FROM inventory_transactions
-    """)
-    trans = cursor.fetchone()
-    total_in = trans["total_in"] or 0
-    total_out = trans["total_out"] or 0
+    # ----------------------------------------------------
+    # TABIIY SAVOLLAR VA MEHMON / ISHCHI INTENTLARI
+    # ----------------------------------------------------
 
-    # INTENT 1: Attendance / Shifts / Who is working
-    if any(k in prompt_lower for k in ["kim", "ishda", "keldi", "davomat", "smena", "кто на работе", "явка"]):
-        response = f"👑 **Shokh Restaurant — Jonli Davomat va Smena:**\n\n"
-        response += f"Jami xodimlar: **{total_staff} nafar** | Hozir ishda: **{active_count} nafar** (1-smena: 09:00 - 19:00)\n\n"
-        response += "🟢 **Ayni paytda ishlayotganlar:**\n"
-        for row in active_staff:
-            if row["clock_in"]:
-                c_in = row["clock_in"].split()[1][:5] if " " in row["clock_in"] else row["clock_in"]
-                late_txt = f" ⚠️ *({row['late_minutes']} daq. kechikkan, Jarima: {row['penalty_amount']:,.0f} so'm)*" if row["is_late"] else ""
-                response += f"- **{row['name']}** ({row['role']}) — Soat {c_in} da kelgan{late_txt}\n"
-        
-        absent = [row for row in active_staff if not row["clock_in"]]
-        if absent:
-            response += f"\n⚪ **Keyingi smenaga (2-smena 13:00-23:00) yoki damda:**\n"
-            for row in absent:
-                response += f"- {row['name']} ({row['role']} — {row['shift_preference']})\n"
-        return response
+    # Salomlashish va umumiy murojaat
+    if any(k in p for k in ["salom", "assalom", "privet", "hello", "qalaysan", "ishlar", "qalesiz"]):
+        return (
+            "Assalomu alaykum! Xush kelibsiz! Men **ShokhAI** — Shokh Restaurant ning shaxsiy aqlli yordamchisiman. 👑\n\n"
+            "Sizga qanday yordam bera olaman?\n"
+            "• 🍽️ **Mehmonlar uchun:** Mazali taomlar, souslar tavsiyasi va ish vaqtimiz.\n"
+            "• 👨‍🍳 **Xodimlar uchun:** Smena tartibi, davomat, ish haqi va qoidalar.\n"
+            "• 💼 **Boshqaruv uchun:** Ombor qoldiqlari, oyliklar, jarimalar va jihozlar nazorati.\n\n"
+            "Marhamat, savolingizni bering!"
+        )
 
-    # INTENT 2: Penalties / Late arrivals (Jarima va kechikishlar)
-    elif any(k in prompt_lower for k in ["jarima", "kechik", "kech qol", "shtraf", "penalty"]):
-        if not penalties_list:
-            return "✅ **Hozircha hech qanday jarima yoki kechikishlar qayd etilmagan!** Intizom 100% a'lo."
-        
-        total_pen = sum(p["penalty_amount"] for p in penalties_list)
-        response = f"⚠️ **Shokh Restaurant — Kechikishlar va Jarimalar hisoboti:**\n\n"
-        response += f"Strategiya bo'yicha belgilangan jarima: **20 000 dan 200 000 so'mgacha**.\n"
-        response += f"Jami qo'llanilgan jarimalar: **{total_pen:,.0f} so'm**.\n\n"
-        for p in penalties_list:
-            response += f"- 🔴 **{p['staff_name']}** ({p['staff_role']}): **{p['penalty_amount']:,.0f} so'm** — {p['penalty_reason'] or 'Sababsiz kechikish'} ({p['clock_in']})\n"
-        return response
+    # Mehmon tavsiyalari / Nima yesam bo'ladi / Tavsiya
+    if any(k in p for k in ["tavsiya", "nima yesam", "maslahat", "eng mazali", "qaysi ovqat", "zo'r"]):
+        text = "👑 **Shokh Restaurant — Bosh oshpazimizdan maxsus tavsiyalar:**\n\n"
+        hot_items = [m for m in menu_items if "issiq" in m["category"].lower() or "go'sht" in m["name"].lower() or "tovuq" in m["name"].lower()]
+        for m in (hot_items[:3] if hot_items else menu_items[:3]):
+            text += f"🔥 **{m['name']}** — {int(m['price']):,} so'm\n   _{m['recipe_notes'] or 'Yangi masalliqlardan tayyorlanadi'}_\n"
+        text += "\n🍅 **Maxsus souslar:** Albatta 'Shokh Maxsus Qizil Sous' yoki sarimsoqli oq sous bilan tatib ko'rishni tavsiya qilamiz!"
+        return text
 
-    # INTENT 3: Equipment & Assets (Jihozlar va Inventarlar)
-    elif any(k in prompt_lower for k in ["jihoz", "inventar", "uskuna", "pech", "texnika", "оборудование"]):
-        cursor.execute("SELECT * FROM equipment ORDER BY condition DESC")
-        eq_all = cursor.fetchall()
-        response = f"🔧 **Shokh Restaurant — Jihozlar va Inventarlar holati:**\n\n"
-        for eq in eq_all:
-            icon = "🟢" if eq["condition"] == "yaroqli" else "🟡" if eq["condition"] == "tamir_talab" else "🔴"
-            status_uz = "Ishga to'liq yaroqli" if eq["condition"] == "yaroqli" else "Ta'mir talab qiladi"
-            response += f"- {icon} **{eq['name']}** ({eq['location']}): {status_uz}. *{eq['notes']}*\n"
-        return response
-
-    # INTENT 4: Food Expiry, Freshness & Warehouse (Yaroqlilik muddati va Tovar)
-    elif any(k in prompt_lower for k in ["tovar", "ombor", "yaroqlilik", "muddati", "gosht", "go'sht", "sabzavot", "sous", "kam", "tugayapti"]):
-        response = f"🥩 **Shokh Restaurant — Mahsulotlar sifati va Ombor nazorati:**\n\n"
-        if critical_items:
-            response += "⚠️ **Kritik holatdagi yoki muddati yaqinlashgan mahsulotlar:**\n"
-            for item in critical_items:
-                stat = "🟡 Muddati oz qolgan!" if item["freshness_status"] == "muddati_yaqin" else "🔴 Kam qolgan"
-                response += f"- **{item['name']}** ({item['category']}): Qoldiq **{item['current_stock']} {item['unit']}** (Min: {item['min_stock']}). Yaroqlilik: {item['expiry_date']} ➔ {stat}\n"
-        else:
-            response += "✅ Barcha go'sht, sabzavot va souslar iste'molga to'liq yaroqli va yangi!\n"
-
-        response += f"\n💡 **Sifat nazorati talabi:** Barcha chala-yarim tayyor go'sht va souslar har smena almashishida tekshiriladi."
-        return response
-
-    # INTENT 5: Menu, Semi-Finished Products & Sauces (Taomlar va Souslar)
-    elif any(k in prompt_lower for k in ["ovqat", "taom", "menyu", "sous", "chala", "yarim tayyor", "menu", "блюда"]):
-        cursor.execute("SELECT * FROM menu_items ORDER BY category ASC")
-        menu_items = cursor.fetchall()
-        response = f"🍽️ **Shokh Restaurant — Issiq taomlar, Yarim tayyor mahsulotlar va Souslar:**\n\n"
+    # Menyu va narxlar
+    if any(k in p for k in ["menyu", "ovqat", "taom", "sous", "narx", "qancha turadi", "ichimlik"]):
+        text = "📋 **Shokh Restaurant — Taomlar va Souslar Menyusi:**\n\n"
+        cats = {}
         for m in menu_items:
-            response += f"- **{m['name']}** ({m['category']}): **{m['price']:,.0f} so'm** (~{m['prep_time_minutes']} daq.) — *{m['recipe_notes']}*\n"
-        return response
+            cats.setdefault(m["category"], []).append(m)
+        for cat, items in cats.items():
+            text += f"**{cat}:**\n"
+            for item in items:
+                text += f"• {item['name']} — **{int(item['price']):,} so'm** (~{item['prep_time_minutes']} daq)\n"
+            text += "\n"
+        return text
 
-    # INTENT 6: Payroll & Rates (Oylik va soatbay stavkalar)
-    elif any(k in prompt_lower for k in ["oylik", "maosh", "stavka", "soatbay", "zarplata", "payroll"]):
-        response = f"💰 **Shokh Restaurant — Soatbay Ish Haqi va Oyliklar:**\n\n"
-        response += "📌 **Lavozimlar stavkasi:**\n"
-        response += "• Direktor: 35,000 so'm/soat\n• Menejer: 28,000 so'm/soat\n• Lider (2-pozitsiya): 22,000 so'm/soat\n• Lider (1-pozitsiya): 20,000 so'm/soat\n• Universal: 18,000 so'm/soat\n• Povur: 17,000 so'm/soat\n• Stajor: 15,000 so'm/soat\n• Tozalik xodimasi: 15,000 so'm/soat\n\n"
-        response += "💵 **Hisoblangan joriy oyliklar:**\n"
-        for p in payroll_stats:
-            net = p['earned'] - p['total_penalties']
-            pen_str = f" *(Jarima: -{p['total_penalties']:,.0f} so'm)*" if p['total_penalties'] > 0 else ""
-            response += f"- **{p['name']}** ({p['role']}): **{p['total_h']:.1f} soat** ➔ **{net:,.0f} so'm**{pen_str}\n"
-        
-        response += f"\n💎 **Jami to'lanishi kerak:** **{total_payroll_est:,.0f} so'm**."
-        return response
+    # Ish vaqti va manzili
+    if any(k in p for k in ["ish vaqti", "soat nechada", "ochiq", "yopiq", "qachongacha", "grafik"]):
+        return (
+            "⏰ **Shokh Restaurant ish grafigi:**\n\n"
+            "• **Restoran ish vaqti:** 10:00 dan 23:00 gacha har kuni.\n"
+            "• **1-smena:** 09:00 dan 19:00 gacha (tayyorgarlik bilan)\n"
+            "• **2-smena:** 13:00 dan 23:00 gacha\n\n"
+            "Har doim issiq va toza taomlar bilan xizmatingizdamiz!"
+        )
 
-    # INTENT 7: General Executive Report (Umumiy hisobot)
-    elif any(k in prompt_lower for k in ["hisobot", "xulosa", "umumiy", "otchet"]):
-        return f"""👑 **Shokh Restaurant — Umumiy Operatsion Hisobot:**
+    # Davomat / Kim ishda / Kelganlar
+    if any(k in p for k in ["kim ishda", "kimlar keldi", "davomat", "ishlayapti", "smena"]):
+        text = f"⏱️ **Hozirgi smena davomati holati:**\n\n"
+        text += f"🟢 **Ayni damda oshxonada / zalda ishlayotganlar ({len(active_workers)} nafar):**\n"
+        if active_workers:
+            for w in active_workers:
+                t = w["clock_in"].split()[1][:5] if " " in w["clock_in"] else w["clock_in"]
+                late_txt = f" (⚠️ {w['late_minutes']} daq. kechikkan)" if w["is_late"] else ""
+                text += f"• **{w['name']}** — {w['role']} (Kelgan: {t}){late_txt}\n"
+        else:
+            text += "_Hozircha hech kim kirdi-chiqdi qilmagan._\n"
 
-1. ⏰ **Ish tartibi:** 10:00 - 23:00 (1-smena: 09:00 - 19:00 | 2-smena: 13:00 - 23:00).
-2. 👥 **Davomat:** {active_count}/{total_staff} xodim ayni paytda ishda. Kechikkanlar jarimasi: {sum(p['penalty_amount'] for p in penalties_list):,.0f} so'm.
-3. 💰 **Ish haqi (Soatbay):** Hisoblangan joriy maoshlar fondi: **{total_payroll_est:,.0f} so'm**.
-4. 🥩 **Sifat & Ombor:** {len(critical_items)} ta tovar alohida nazoratda (go'sht/sabzavot/souslar).
-5. 🔧 **Jihozlar:** {len(broken_equipment)} ta uskuna (sovutgich) profilaktika talab qiladi.
+        if absent_workers:
+            text += f"\n⚪ **Damda yoki keyingi smenada ({len(absent_workers)} nafar):**\n"
+            for a in absent_workers[:6]:
+                text += f"• {a['name']} ({a['role']})\n"
+        return text
 
-💡 **ShokhAI Tavsiyasi:** 1-smena tugashiga 1 soat qolganda yarim tayyor go'sht va souslar qoldig'ini sanab, 2-smenaga topshirish lozim."""
+    # Jarimalar va kechikish qoidalari
+    if any(k in p for k in ["jarima", "kechik", "shtraf", "jazo", "intizom"]):
+        text = (
+            "⚖️ **Restoran Intizom va Jarima Qoidalari:**\n\n"
+            "• Smenaga kech qolish yoki sababsiz chiqmaslik uchun jarima: **20 000 so'mdan 200 000 so'mgacha**.\n"
+            "• Kelish vaqti avtomatik PIN kiosk orqali qayd etiladi va kechiksa @shokh0502 ga Telegram xabar boradi.\n\n"
+        )
+        if penalties:
+            text += "🔴 **Yaqinda qayd etilgan jarimalar:**\n"
+            for pen in penalties:
+                text += f"• {pen['staff_name']} ({pen['staff_role']}): **{int(pen['penalty_amount']):,} so'm** — {pen['penalty_reason'] or 'Kechikish'}\n"
+        else:
+            text += "✅ Hozirda jarimalar yo'q, xodimlar intizomi a'lo darajada!"
+        return text
 
-    # Default fallback
+    # Oylik va ish haqi / soatbay stavkalar
+    if any(k in p for k in ["oylik", "maosh", "stavka", "soatbay", "zarplata", "qancha oladi", "ish haqi"]):
+        text = (
+            "💰 **Shokh Restaurant — Soatbay Stavka va Oyliklar:**\n\n"
+            "👑 **Lavozimlar iyerarxiyasi:**\n"
+            "1. Direktor — 35 000 so'm/soat\n"
+            "2. Menejer — 28 000 so'm/soat\n"
+            "3. Lider (2-pozitsiya) — 22 000 so'm/soat\n"
+            "4. Lider (1-pozitsiya) — 20 000 so'm/soat\n"
+            "5. Universal — 18 000 so'm/soat\n"
+            "6. Povur (Oshpaz) — 17 000 so'm/soat\n"
+            "7. Stajor — 15 000 so'm/soat\n"
+            "8. Tozalik xodimasi — 15 000 so'm/soat\n\n"
+            f"💵 **Hisoblangan jami ish haqi fondi:** **{int(total_payroll):,} so'm**"
+        )
+        return text
+
+    # Ombor, tovarlar, yaroqlilik muddati
+    if any(k in p for k in ["ombor", "tovar", "go'sht", "gosht", "sabzavot", "muddat", "yaroqli", "tugayabdi", "kam"]):
+        text = "🥩 **Ombor zaxirasi va Yaroqlilik nazorati:**\n\n"
+        if critical_items:
+            text += "⚠️ **Zudlik bilan e'tibor talab qiluvchi mahsulotlar:**\n"
+            for it in critical_items:
+                reason = "🔴 Kam qolgan" if it["current_stock"] <= it["min_stock"] else "🟡 Muddati yaqin"
+                text += f"• **{it['name']}** — Qoldiq: {it['current_stock']} {it['unit']} (Muddati: {it['expiry_date']}) ➔ {reason}\n"
+            text += "\n💡 *Maslahat: Go'sht va souslar sifatini har smenada almashtirish paytida liderlar tekshirishi shart.*"
+        else:
+            text += "✅ Barcha go'sht, sous va sabzavotlar yetarli va to'liq yaroqli holatda!"
+        return text
+
+    # Jihozlar va uskunalar
+    if any(k in p for k in ["jihoz", "uskuna", "pech", "fityur", "xolodilnik", "muzlatgich", "buzilgan", "remont"]):
+        text = "🔧 **Jihozlar va Texnikalar Holati:**\n\n"
+        if broken_eq:
+            text += "⚠️ **Ta'mir talab yoki nazoratdagi uskunalar:**\n"
+            for b in broken_eq:
+                text += f"• **{b['name']}** ({b['location']}) — {b['notes'] or 'Tekshirish kerak'}\n"
+        else:
+            text += "✅ Barcha pechlar, fityur va muzlatgichlar soz holatda ishlamoqda!\n"
+        return text
+
+    # Umumiy savol yoki noaniq bo'lsa mantiqiy erkin javob
     return (
-        f"Assalomu alaykum! Men **ShokhAI** — Shokh Restaurant ning aqlli operatsion tahlilchisiman. 👑\n\n"
-        f"Restoranning barcha strategik qoidalariga muvofiq quyidagilarni bilaman:\n"
-        f"• *'Bugun kimlar ishda?'* — 1-smena va 2-smena davomati\n"
-        f"• *'Kechikishlar va jarimalar'* — 20 000 - 200 000 so'mlik jarimalar hisoboti\n"
-        f"• *'Oyliklar hisoboti'* — Stajor (15k), Povur (17k), Universal (18k), Lider (20-22k)... soatbay maoshlari\n"
-        f"• *'Mahsulotlar va yaroqlilik'* — Go'sht, sabzavotlar, souslar zaxirasi va sifati\n"
-        f"• *'Jihozlar holati'* — Pech, fityur, sovutgich va inventarlar ishga yaroqliligi\n"
-        f"• *'Taomlar va menyu'* — Yarim tayyor issiq taomlar va souslar ro'yxati\n\n"
-        f"Qaysi ma'lumotni tahlil qilib beray?"
+        f"👑 **ShokhAI javobi:**\n\n"
+        f"\"{prompt}\" bo'yicha ma'lumot:\n"
+        f"Restoranda hozir **{len(active_workers)} nafar xodim** ishlamoqda. "
+        f"Menyuda **{len(menu_items)} xil** taom va souslar bor. "
+        f"Omborda {len(critical_items)} ta mahsulot alohida nazoratda.\n\n"
+        f"Aniqroq ma'lumot olish uchun quyidagilarni so'rashingiz mumkin:\n"
+        f"👉 *'Bugun kimlar ishda?'*, *'Mazali nima bor?'*, *'Kechikishlar bormi?'*, *'Oyliklar qancha?'*, *'Ombor holati'*."
     )
