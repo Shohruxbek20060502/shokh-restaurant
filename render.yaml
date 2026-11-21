@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: shokh-restaurant
+    env: python
+    buildCommand: "echo 'No build dependencies needed'"
+    startCommand: "python3 backend/server.py $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
